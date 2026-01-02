@@ -1,0 +1,109 @@
+#include "window.h"
+#include <stdlib.h>
+#include <windows.h>
+#include <GL/gl.h>
+
+static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+static HWND hwnd;
+static HDC hdc;
+static HGLRC ctx;
+static MSG msg;
+static const PIXELFORMATDESCRIPTOR pfd = {
+	sizeof(PIXELFORMATDESCRIPTOR),
+	1,
+	PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+	PFD_TYPE_RGBA,
+	32,
+	0, 0,
+	0,0,
+	0,0, 
+	0, 0,
+	0,
+	0, 0, 0, 0,
+	24,
+	8,
+	0,
+	PFD_MAIN_PLANE, 
+	0, 
+	0, 0, 0
+};
+
+void
+window_create(const LPCSTR class_name, const LPCSTR name, const DWORD style, const int width, const int height)
+{
+	WNDCLASS wc = {0};
+	int pixel_format;
+	wc.lpfnWndProc = WndProc;
+	wc.hInstance = GetModuleHandle(NULL);
+	wc.lpszClassName = class_name;
+	if (!RegisterClass(&wc)) {
+		MessageBox(NULL, TEXT("Could not register window class"), NULL, MB_ICONERROR);
+		exit(EXIT_FAILURE);
+	}
+	hwnd = CreateWindowA(
+		class_name, 
+		name,
+		style,
+		CW_USEDEFAULT, 
+		CW_USEDEFAULT, 
+		width, 
+		height, 
+		NULL, 
+		NULL,
+		wc.hInstance, 
+		NULL
+	);
+	if (!hwnd) {
+		MessageBox(NULL, TEXT("Could not create window"), NULL, MB_ICONERROR);
+		exit(EXIT_FAILURE);
+	}
+	hdc = GetDC(hwnd);
+	pixel_format = ChoosePixelFormat(hdc, &pfd);
+	SetPixelFormat(hdc, pixel_format, &pfd);
+	ctx = wglCreateContext(hdc);
+	if (!ctx) {
+		MessageBox(NULL, TEXT("Could not create OpenGL context"), NULL, MB_ICONERROR);
+		exit(EXIT_FAILURE);
+	}
+	if (!wglMakeCurrent(hdc, ctx)) {
+		MessageBox(NULL, TEXT("Could not make OpenGL context current"), NULL, MB_ICONERROR);
+		exit(EXIT_FAILURE);
+	}
+	ShowWindow(hwnd, SW_SHOW);
+	UpdateWindow(hwnd);
+}
+
+int
+window_update(void)
+{
+	if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
+		if (msg.message == WM_QUIT) {
+			return 0;
+		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	SwapBuffers(hdc);
+	return 1;
+}
+
+void
+window_destroy(void)
+{
+	wglMakeCurrent(NULL, NULL);
+	wglDeleteContext(ctx);
+	ReleaseDC(hwnd, hdc);
+	DestroyWindow(hwnd);
+}
+
+static LRESULT CALLBACK
+WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg) {
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		return 0;
+	}
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
