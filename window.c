@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <windows.h>
 #include <GL/gl.h>
+#include <winnt.h>
 
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
+static const char class_name[] = "MainWindowClass";
 static HWND hwnd;
 static HDC hdc;
 static HGLRC ctx;
@@ -30,16 +32,22 @@ static const PIXELFORMATDESCRIPTOR pfd = {
 };
 
 void
-window_create(const LPCSTR class_name, const LPCSTR name, const DWORD style, const int width, const int height)
+window_create(const char *name, const int resizable, const int width, const int height)
 {
 	WNDCLASS wc = {0};
 	int pixel_format;
+	DWORD style;
 	wc.lpfnWndProc = WndProc;
 	wc.hInstance = GetModuleHandle(NULL);
 	wc.lpszClassName = class_name;
 	if (!RegisterClass(&wc)) {
 		MessageBox(NULL, TEXT("Could not register window class"), NULL, MB_ICONERROR);
 		exit(EXIT_FAILURE);
+	}
+	if (resizable) {
+		style = WS_OVERLAPPEDWINDOW;
+	} else {
+		style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
 	}
 	hwnd = CreateWindowA(
 		class_name, 
