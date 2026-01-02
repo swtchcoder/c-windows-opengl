@@ -1,5 +1,5 @@
 CC=cc
 CFLAGS=-Wall -Wextra -pedantic -std=c99
-LIBS=
+LIBS=-lopengl32 -lgdi32
 SRC=main.c
 OBJ=$(SRC:.c=.o)
