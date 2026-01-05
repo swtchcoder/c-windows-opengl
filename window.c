@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <windows.h>
 #include <GL/gl.h>
-#include <winnt.h>
 
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -30,6 +29,7 @@ static const PIXELFORMATDESCRIPTOR pfd = {
 	0, 
 	0, 0, 0
 };
+static int keys[0xff];
 
 void
 window_create(const char *name, const int resizable, const int width, const int height)
@@ -96,6 +96,10 @@ window_update(void)
 	return 1;
 }
 
+int input_key_down(input_t key) {
+	return keys[key];
+}
+
 void
 window_destroy(void)
 {
@@ -111,6 +115,12 @@ WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
+		return 0;
+	case WM_KEYDOWN:
+		keys[wParam] = 1;
+		return 0;
+	case WM_KEYUP:
+		keys[wParam] = 0;
 		return 0;
 	}
 	return DefWindowProc(hwnd, msg, wParam, lParam);
