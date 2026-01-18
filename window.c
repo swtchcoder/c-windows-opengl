@@ -1,7 +1,8 @@
 #include "window.h"
 #include <stdlib.h>
+#include "glad/glad.h"
+#include <windows.h>
 #include <windowsx.h>
-#include <GL/gl.h>
 
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -78,6 +79,10 @@ window_create(const char *name, const int resizable, const int width, const int 
 	}
 	if (!wglMakeCurrent(hdc, ctx)) {
 		MessageBox(NULL, TEXT("Could not make OpenGL context current"), NULL, MB_ICONERROR);
+		exit(EXIT_FAILURE);
+	}
+	if (!gladLoadGL()) {
+		MessageBox(NULL, TEXT("Could not load GLAD"), NULL, MB_ICONERROR);
 		exit(EXIT_FAILURE);
 	}
 	ShowWindow(hwnd, SW_SHOW);

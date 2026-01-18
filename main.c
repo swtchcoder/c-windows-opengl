@@ -1,5 +1,5 @@
-#include <GL/gl.h>
 #include "window.h"
+#include <GL/gl.h>
 
 static const char *window_name = "Hello world!";
 static const int width = 800;
