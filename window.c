@@ -1,6 +1,6 @@
 #include "window.h"
 #include <stdlib.h>
-#include "glad/glad.h"
+#include "glad/gl.h"
 #include <windows.h>
 #include <windowsx.h>
 
@@ -95,7 +95,7 @@ window_create(const char *name, const int resizable, const int width, const int 
 		MessageBox(NULL, TEXT("Could not make OpenGL context current"), NULL, MB_ICONERROR);
 		exit(EXIT_FAILURE);
 	}
-	if (!gladLoadGL()) {
+	if (!gladLoaderLoadGL()) {
 		MessageBox(NULL, TEXT("Could not load GLAD"), NULL, MB_ICONERROR);
 		exit(EXIT_FAILURE);
 	}
