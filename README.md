@@ -17,7 +17,7 @@ and copy *include* and *src* into *external* folder.
 * [x] Charger les fonctions OpenGL avec GLAD
 * [x] Dessiner un triangle
 * [ ] Empaqueter les ressources
-	* [ ] Empaqueter les shaders
+	* [x] Empaqueter les shaders
 	* [ ] Empaqueter les images
 		* [ ] Compresser les images
 	* [ ] Empaqueter les polices
