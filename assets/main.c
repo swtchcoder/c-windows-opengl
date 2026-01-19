@@ -1,14 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
 #include "config.h"
 
 void textual_process(void);
+void image_process(void);
 
 static FILE *bin;
 static FILE *header;
 static const long textual_count = sizeof(textuals) / sizeof(source_t);
-source_t textual;
-static FILE *current;
+source_t source;
+static FILE *f;
+static const long image_count = sizeof(images) / sizeof(source_t);
 static long size;
 static long index = 0;
 
@@ -27,8 +31,12 @@ main(void)
 		return 1;
 	}
 	for (i = 0; i < textual_count; i++) {
-		textual = textuals[i];
+		source = textuals[i];
 		textual_process();
+	}
+	for (i = 0; i < image_count; i++) {
+		source = images[i];
+		image_process();
 	}
 	fclose(bin);
 	fclose(header);
@@ -40,38 +48,60 @@ textual_process(void)
 {
 	char *buffer;
 	long sizep;
-	current = fopen(textual.filename, "r");
-	if (!current) {
-		perror(textual.filename);
+	f = fopen(source.filename, "r");
+	if (!f) {
+		perror(source.filename);
 		exit(1);
 	}
-	fseek(current, 0, SEEK_END);
-	size = ftell(current);
-	rewind(current);
+	fseek(f, 0, SEEK_END);
+	size = ftell(f);
+	rewind(f);
 	buffer = malloc(size);
 	if (!buffer) {
-		perror(textual.filename);
+		perror(source.filename);
 		exit(1);
 	}
-	sizep = fread(buffer, 1, size, current);
+	sizep = fread(buffer, 1, size, f);
 	if (sizep != size) {
-		if (ferror(current)) {
-			perror(textual.filename);
+		if (ferror(f)) {
+			perror(source.filename);
 			exit(1);
 		}
 		size = sizep;
 		buffer = realloc(buffer, size);
 		if (!buffer) {
-			perror(textual.filename);
+			perror(source.filename);
 			exit(1);
 		}
 	}
 	sizep = fwrite(buffer, 1, size, bin);
 	if (sizep != size) {
-		perror(textual.filename);
+		perror(source.filename);
 		exit(1);
 	}
-	fprintf(header, "long %s_index = %ld;\nlong %s_size = %ld;\n\n", textual.name, index, textual.name, index + size);
+	free(buffer);
+	fprintf(header, "long %s_index = %ld;\nlong %s_size = %ld;\n\n", source.name, index, source.name, index + size);
 	index += size;
-	fclose(current);
+	fclose(f);
+}
+
+void
+image_process(void)
+{
+	int width, height, channels;
+	long sizep;
+	unsigned char *buffer = stbi_load(source.filename, &width, &height, &channels, 0);
+	if (!buffer) {
+		fprintf(stderr, "%s: Error loading image\n", source.filename);
+		exit(1);
+	}
+	size = width * height;
+	sizep = fwrite(buffer, 1, size, bin);
+	if (sizep != size) {
+		perror(source.filename);
+		exit(1);
+	}
+	fprintf(header, "long %s_index = %ld;\nlong %s_size = %ld;\nint %s_width = %d;\nint %s_height = %d;\nint %s_channels = %d;\n\n", source.name, index, source.name, index + size, source.name, width, source.name, height, source.name, channels);
+	index += size;
+	stbi_image_free(buffer);
 }

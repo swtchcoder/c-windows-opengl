@@ -7,3 +7,7 @@ source_t textuals[] = {
 	{"main.c", "main"},
 	{"config.h", "config"}
 };
+
+source_t images[] = {
+	{"image.jpg", "image"}
+};

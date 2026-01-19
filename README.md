@@ -18,8 +18,8 @@ and copy *include* and *src* into *external* folder.
 * [x] Dessiner un triangle
 * [ ] Empaqueter les ressources
 	* [x] Empaqueter les shaders
-	* [ ] Empaqueter les images
-		* [ ] Compresser les images
+	* [x] Empaqueter les images
+	* [ ] Compresser les images
 	* [ ] Empaqueter les polices
 		* [ ] Convertir les polices en spritesheets
 	* [ ] Empaqueter les fichiers audio
