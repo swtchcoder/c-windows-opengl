@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #define STB_IMAGE_IMPLEMENTATION
@@ -9,22 +10,26 @@
 static void textual_process(void);
 static void image_process(void);
 static void font_process(void);
+static size_t file_load(const char *path, unsigned char **buffer);
+static size_t file_read(FILE *f, unsigned char **buffer);
+static size_t file_size(FILE *f);
+static int pow2_next(int a);
 
 static FILE *data;
 static FILE *meta;
-static const long textual_count = sizeof(textuals) / sizeof(source_t);
+static const size_t textual_count = sizeof(textuals) / sizeof(source_t);
 static source_t source;
 static const font_t *source_font;
 static FILE *f;
-static const long image_count = sizeof(images) / sizeof(source_t);
-static const long font_count = sizeof(fonts) / sizeof(font_t);
-static long size;
-static long index = 0;
+static const size_t image_count = sizeof(images) / sizeof(source_t);
+static const size_t font_count = sizeof(fonts) / sizeof(font_t);
+static size_t size;
+static size_t index = 0;
 
 int
 main(void)
 {
-	long i;
+	size_t i;
 	data = fopen("assets.bin", "wb");
 	if (!data) {
 		perror("assets.bin");
@@ -55,43 +60,22 @@ main(void)
 static void
 textual_process(void)
 {
-	char *buffer;
-	long sizep;
-	f = fopen(source.filename, "r");
-	if (!f) {
+	unsigned char *buffer;
+	size_t written;
+	size = file_load(source.filename, &buffer);
+	if (!size) {
 		perror(source.filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
-	fseek(f, 0, SEEK_END);
-	size = ftell(f);
-	rewind(f);
-	buffer = malloc(size);
-	if (!buffer) {
+	written = fwrite(buffer, 1, size, data);
+	if (written != size) {
 		perror(source.filename);
-		exit(1);
-	}
-	sizep = fread(buffer, 1, size, f);
-	if (sizep != size) {
-		if (ferror(f)) {
-			perror(source.filename);
-			exit(1);
-		}
-		size = sizep;
-		buffer = realloc(buffer, size);
-		if (!buffer) {
-			perror(source.filename);
-			exit(1);
-		}
-	}
-	sizep = fwrite(buffer, 1, size, data);
-	if (sizep != size) {
-		perror(source.filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	free(buffer);
 	fprintf(meta, 
-"long %s_index = %ld;\n"
-"long %s_size = %ld;\n"
+"const size_t %s_index = %zu;\n"
+"const size_t %s_size = %zu;\n"
 "\n",
 		source.name, index, source.name, index + size);
 	index += size;
@@ -102,24 +86,24 @@ static void
 image_process(void)
 {
 	int width, height, channels;
-	long sizep;
+	size_t sizep;
 	unsigned char *buffer = stbi_load(source.filename, &width, &height, &channels, 0);
 	if (!buffer) {
 		fprintf(stderr, "%s: Error loading image\n", source.filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	size = width * height;
 	sizep = fwrite(buffer, 1, size, data);
 	if (sizep != size) {
 		perror(source.filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	fprintf(meta, 
-"long %s_index = %ld;\n"
-"long %s_size = %ld;\n"
-"int %s_width = %d;\n"
-"int %s_height = %d;\n"
-"int %s_channels = %d;\n"
+"const size_t %s_index = %zu;\n"
+"const size_t %s_size = %zu;\n"
+"const int %s_width = %d;\n"
+"const int %s_height = %d;\n"
+"const int %s_channels = %d;\n"
 "\n",
 		source.name, index, source.name, index + size, source.name, width, source.name, height, source.name, channels);
 	index += size;
@@ -129,10 +113,7 @@ image_process(void)
 static void
 font_process(void)
 {
-	FILE *file;
-	long size;
 	unsigned char *buffer;
-	size_t buffer_size;
 	stbtt_fontinfo font;
 	float scale;
 	int ascent, descent, lineGap;
@@ -146,37 +127,10 @@ font_process(void)
 	float x, y;
 	stbtt_aligned_quad quads[95];
 	stbtt_packedchar chars[95];
-	file = fopen(source_font->filename, "rb");
-	if (!file) {
-		perror(source_font->filename);
-		exit(1);
-	}
-	fseek(file, 0, SEEK_END);
-	size = ftell(file);
-	if (size < 0) {
-		perror("ftell");
+	if (!file_load(source_font->filename, &buffer)) {
+		perror("file_load()");
 		exit(EXIT_FAILURE);
 	}
-	rewind(file);
-	buffer = malloc(size + 1);
-	if (!buffer) {
-		perror(source_font->filename);
-		exit(1);
-	}
-	buffer_size = fread(buffer, 1, size, file);
-	if (buffer_size != (size_t)size) {
-		if (ferror(file)) {
-			perror(source_font->filename);
-			exit(1);
-		}
-		buffer = realloc(buffer, buffer_size + 1);
-		if (!buffer) {
-			perror(source_font->filename);
-			exit(1);
-		}
-	}
-	fclose(file);
-	buffer[buffer_size] = 0;
 	if (!stbtt_InitFont(&font, buffer, 0)) {
 		fprintf(stderr, "error initializing font\n");
 		exit(EXIT_FAILURE);
@@ -186,26 +140,20 @@ font_process(void)
 	height = (ascent - descent + lineGap) * scale;
 	surface = (height * 0.6) * height * 95;
 	dim = (int)sqrt(surface);
-	dim--;
-	dim |= dim >> 1;
-	dim |= dim >> 2;
-	dim |= dim >> 4;
-	dim |= dim >> 8;
-	dim |= dim >> 16;
-	dim++;
+	dim = pow2_next(dim);
 	bitmap_size = dim * dim;
 	bitmap = calloc(bitmap_size, sizeof(unsigned char));
 	if (!bitmap) {
 		perror(source_font->filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	if (!stbtt_PackBegin(&ctx, bitmap, dim, dim, 0, 1, NULL)) {
 		fprintf(stderr, "%s: stbtt_PackBegin\n", source_font->filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	if (!stbtt_PackFontRange(&ctx, buffer, 0, source_font->size, 32, 95, chars)) {
 		fprintf(stderr, "%s: stbtt_PackFontRange\n", source_font->filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	free(buffer);
 	stbtt_PackEnd(&ctx);
@@ -213,11 +161,83 @@ font_process(void)
 		x = y = 0.0f;
 		stbtt_GetPackedQuad(chars, dim, dim, i, &x, &y, &quads[i], 0);
 	}
-
 	if (fwrite(bitmap, sizeof(unsigned char), bitmap_size, data) != dim * dim) {
 		perror(source_font->filename);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	free(bitmap);
 	index += bitmap_size;
+}
+
+static size_t
+file_load(const char *path, unsigned char **buffer)
+{
+	FILE *f;
+	size_t size;
+	f = fopen(path, "rb");
+	if (!f) {
+		return 0;
+	}
+	size = file_read(f, buffer);
+	fclose(f);
+	return size;
+}
+
+static size_t
+file_read(FILE *f, unsigned char **buffer)
+{
+	size_t size;
+	size_t readen;
+	unsigned char *tmp;
+	size = file_size(f);
+	if (!size) {
+		return 0;
+	}
+	*buffer = malloc(size);
+	if (!*buffer) {
+		return 0;
+	}
+	readen = fread(*buffer, 1, size, f);
+	if (readen != size) {
+		if (ferror(f)) {
+			free(*buffer);
+			*buffer = NULL;
+			return 0;
+		}
+		tmp = realloc(*buffer, readen);
+		if (!tmp) {
+			free(*buffer);
+			*buffer = NULL;
+			return 0;
+		}
+		*buffer = tmp;
+	}
+	return readen;
+}
+
+static size_t
+file_size(FILE *f)
+{
+	long size;
+	fseek(f, 0, SEEK_END);
+	size = ftell(f);
+	if (size < 0) {
+		return 0;
+	}
+	rewind(f);
+	return size;
+}
+
+static int
+pow2_next(int a)
+{
+	int b = a;
+	b--;
+	b |= b >> 1;
+	b |= b >> 2;
+	b |= b >> 4;
+	b |= b >> 8;
+	b |= b >> 16;
+	b++;
+	return b;
 }
