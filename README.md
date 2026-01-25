@@ -24,5 +24,5 @@ and copy *include* and *src* into *external* folder.
 	* [x] Empaqueter les polices
 	* [ ] Ajouter la meta des polices
 	* [ ] Empaqueter les fichiers audio
-* [ ] Lire les donnees empaquetees
+* [x] Lire les donnees empaquetees
 * [ ] Appliquer une texture
