@@ -3,8 +3,11 @@
 #include "glad/gl.h"
 #include <windows.h>
 #include <windowsx.h>
+#include <winnt.h>
 
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+static GLuint shader_create(GLenum type, const char *source);
+static GLuint program_create(GLuint vertex, GLuint fragment);
 
 static const char class_name[] = "MainWindowClass";
 static HWND hwnd;
@@ -100,18 +103,10 @@ window_create(const char *name, const int resizable, const int width, const int 
 		exit(EXIT_FAILURE);
 	}
 	/* setup shader program */
-	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vs, 1, &vertex, NULL);
-	glCompileShader(vs);
-	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fs, 1, &fragment, NULL);
-	glCompileShader(fs);
-	program = glCreateProgram();
-	glAttachShader(program, vs);
-	glAttachShader(program, fs);
-	glLinkProgram(program);
-	glDeleteShader(vs);
-	glDeleteShader(fs);
+	GLuint vs = shader_create(GL_VERTEX_SHADER, vertex);
+	GLuint fs = shader_create(GL_FRAGMENT_SHADER, fragment);
+	program = program_create(vs, fs);
+	
 	/* setup triangle buffers */
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
@@ -141,23 +136,6 @@ window_update(void)
 	return 1;
 }
 
-int
-input_mouse_x(void)
-{
-	return mouse_x;
-}
-
-int
-input_mouse_y(void)
-{
-	return mouse_y;
-}
-
-int
-input_key_down(input_t key) {
-	return keys[key];
-}
-
 void
 window_triangle(float x_1, float y_1, float x_2, float y_2, float x_3, float y_3)
 {
@@ -174,6 +152,28 @@ window_triangle(float x_1, float y_1, float x_2, float y_2, float x_3, float y_3
 	glBindVertexArray(0);
 }
 
+
+static LRESULT CALLBACK
+WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg) {
+		case WM_DESTROY:
+		PostQuitMessage(0);
+		return 0;
+		case WM_KEYDOWN:
+		keys[wParam] = 1;
+		return 0;
+		case WM_KEYUP:
+		keys[wParam] = 0;
+		return 0;
+		case WM_MOUSEMOVE:
+		mouse_x = GET_X_LPARAM(lParam);
+		mouse_y = GET_Y_LPARAM(lParam);
+		return 0;
+	}
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
 void
 window_destroy(void)
 {
@@ -185,26 +185,60 @@ window_destroy(void)
 	glDeleteBuffers(1, &vbo);
 	glDeleteVertexArrays(1, &vao);
 	glDeleteProgram(program);
-
 }
 
-static LRESULT CALLBACK
-WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static GLuint
+shader_create(GLenum type, const char *source)
 {
-	switch (msg) {
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
-	case WM_KEYDOWN:
-		keys[wParam] = 1;
-		return 0;
-	case WM_KEYUP:
-		keys[wParam] = 0;
-		return 0;
-	case WM_MOUSEMOVE:
-		mouse_x = GET_X_LPARAM(lParam);
-		mouse_y = GET_Y_LPARAM(lParam);
-		return 0;
+	GLuint shader;
+	GLint ok;
+	shader = glCreateShader(type);
+	glShaderSource(shader, 1, &source, NULL);
+	glCompileShader(shader);
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+	if (!ok) {
+		char log[512];
+		glGetShaderInfoLog(shader, 512, NULL, log);
+		MessageBox(hwnd, TEXT(log), TEXT("Error compiling shader"), MB_ICONERROR);
+		exit(EXIT_FAILURE);
 	}
-	return DefWindowProc(hwnd, msg, wParam, lParam);
+	return shader;
+}
+
+static GLuint
+program_create(GLuint vertex, GLuint fragment)
+{
+	GLuint program;
+	GLint ok;
+	program = glCreateProgram();
+	glAttachShader(program, vertex);
+	glAttachShader(program, fragment);
+	glLinkProgram(program);
+	glDeleteShader(vertex);
+	glDeleteShader(fragment);
+	glad_glGetProgramiv(program, GL_LINK_STATUS, &ok);
+	if (!ok) {
+		char log[512];
+		glGetProgramInfoLog(program, 512, NULL, log);
+		MessageBox(hwnd, TEXT(log), TEXT("Error linking shaders"), MB_ICONERROR);
+		exit(EXIT_FAILURE);
+	}
+	return program;
+}
+
+int
+input_mouse_x(void)
+{
+	return mouse_x;
+}
+
+int
+input_mouse_y(void)
+{
+	return mouse_y;
+}
+
+int
+input_key_down(input_t key) {
+	return keys[key];
 }
